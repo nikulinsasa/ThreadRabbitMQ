@@ -11,12 +11,11 @@ namespace Sasa\ThreadRabbitMQ;
 
 use Sasa\RabbitMQ\ThreadRabbitMQ;
 
-class LogMessage extends ThreadRabbitMQ
+class SleepMessage extends ThreadRabbitMQ
 {
     protected function doAction()
     {
         sleep((int)$this->message);
         var_dump('I was wait '.$this->message.'sec');
     }
-
 }

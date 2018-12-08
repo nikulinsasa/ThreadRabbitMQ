@@ -11,11 +11,16 @@ namespace Sasa\RabbitMQ;
 
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
-use PhpAmqpLib\Message\AMQPMessage;
 
-
+/**
+ * consumer of rabbitmq
+ * Class Consumer
+ * @package Sasa\RabbitMQ
+ */
 class Consumer
 {
+
+    const MAX_POOL = 3;
 
     const DEF_USER = 'guest';
     const DEF_PASSWORD = 'guest';
@@ -34,6 +39,10 @@ class Consumer
 
     private $queue;
 
+    /**
+     * @var \Pool
+     */
+    private $pool;
 
     public function __construct($host = self::DEF_HOST,
                                 $port = self::DEF_PORT,
@@ -42,7 +51,8 @@ class Consumer
     {
         $this->connection = new AMQPStreamConnection($host, $port, $user, $password);
         $this->channel = $this->connection->channel();
-        $this->channel->basic_qos(NULL, 2, NULL);
+
+        $this->pool = new \Pool(self::MAX_POOL);
     }
 
     /**
@@ -120,40 +130,52 @@ class Consumer
             throw new \Exception('queue not connected');
         }
 
-        $threadsList = new ThreadList();
-
         $this->channel->basic_consume($this->queue,
             $consumer_tag,
             $no_local,
             $no_ack,
             $exclusive,
             $nowait,
-            function ($data) use ($threadName, $threadsList) {
-                var_dump($threadsList->isNotFullList(),$data->body);
-                if ($threadsList->isNotFullList()) {
-                    /** @var ThreadRabbitMQ $thread */
-                    $thread = new $threadName();
-                    $thread->setMessage($data->body);
-                    $thread->start();
-                    $threadsList->append($thread);
-                } else {
-                    var_dump($data->body,$this->channel);
-                    $this->channel->basic_publish(new AMQPMessage($data->body), '', $this->queue);
+            function ($data) use ($threadName) {
+                $data->delivery_info['channel']->basic_ack($data->delivery_info['delivery_tag']);
+                if(!class_exists($threadName)){
+                    throw new \Exception('A class '.$threadName.' is absent');
                 }
-            }, $ticket, $arguments);
+                /** @var ThreadRabbitMQ $thread */
+                $thread = new $threadName();
+                if(!($thread instanceof ThreadRabbitMQ)) {
+                    throw new \Exception('A class must be extended by ThreadRabbitMQ');
+                }
+                $thread->setMessage($data->body);
+                $this->pool->submit($thread);
+            },
+            $ticket,
+            $arguments);
 
         while (count($this->channel->callbacks)) {
-            $threadsList->removeInactive();
-            if ($threadsList->isNotFullList()) {
-                $this->channel->wait(NULL, TRUE);
+            if ($this->pool->collect() == 0) {
+                $this->channel->wait(NULL,TRUE);
             }
         }
+    }
+
+    protected function createThread($threadName) {
+
     }
 
     public function close()
     {
         $this->channel->close();
         $this->connection->close();
+    }
+
+
+    /**
+     * @param int $maxPool
+     */
+    public function resizePool(int $maxPool): void
+    {
+        $this->pool->resize($maxPool);
     }
 
 }

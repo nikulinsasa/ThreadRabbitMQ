@@ -55,6 +55,3 @@ alias la='ls -A'\n\
 alias ll='ls -alF'\n\
 alias ls='ls --color=auto'" >> /etc/profile.d/aliases.sh
 
-
-COPY . /usr/phpreact
-CMD [ "php", "main.php" ]

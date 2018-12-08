@@ -8,6 +8,7 @@
   "prefer-stable": true,
   "require": {
     "php": "^7.2",
+    "ext-pthreads": "^2",
     "react/promise":"2.*",
     "react/promise-stream":"^1.1.1",
     "react/mysql":"^0.5",

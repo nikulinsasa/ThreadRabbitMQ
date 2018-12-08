@@ -9,6 +9,8 @@
 namespace Sasa\RabbitMQ;
 
 
+use PhpAmqpLib\Channel\AMQPChannel;
+
 /**
  * Поток выполнения запроса
  * @package Sasa\RabbitMQ
@@ -42,7 +44,7 @@ abstract class ThreadRabbitMQ extends \Thread
     /**
      * @param string $message
      */
-    public function setMessage($message)
+    public function setMessage(string $message)
     {
         $this->message = $message;
     }
@@ -51,5 +53,6 @@ abstract class ThreadRabbitMQ extends \Thread
     {
         return $this->isFinished;
     }
+
 
 }
